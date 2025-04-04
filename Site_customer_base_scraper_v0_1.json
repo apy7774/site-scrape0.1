@@ -1,0 +1,630 @@
+{
+  "name": "Site customer base scraper v0.1",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "Customer scraper"
+            },
+            {
+              "name": "Followers"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "17b6eca1-1481-4763-a503-bd4ef5fb194b",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Parse the JSON 'query' and output the following parameters separately:\n\nTestimonial Company\nClient contact / Rep name",
+              "role": "system"
+            },
+            {
+              "content": "={{ JSON.stringify($json.nodes[1].parameters.extractSelector[2]) }}{{ JSON.stringify($json.nodes[2].parameters.extractSelector[0]) }}{{ JSON.stringify($json.nodes[2].parameters.extractSelector[1]) }}{{ JSON.stringify($json.nodes[2].parameters.extractSelector[2]) }}{{ JSON.stringify($json.nodes[2].parameters.extractSelector[3]) }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        220,
+        0
+      ],
+      "id": "f470cdaf-af7a-4c55-bb76-9f3ae647960c",
+      "name": "OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "XCUBGX6P1HfvHNR9",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function parse($input) {\n    // Extract HTML from nested JSON structure\n    let html = null;\n\n    try {\n        // Handle nested input structure\n        if ($input && $input.item && $input.item.json && $input.item.json.html_debug) {\n            // Parse the JSON-encoded HTML\n            const parsedHtml = JSON.parse($input.item.json.html_debug);\n            html = parsedHtml.data;\n        }\n        // Fallback parsing attempts\n        else if (typeof $input === 'string') {\n            html = $input;\n        }\n        else if ($input && $input.html_debug) {\n            html = $input.html_debug;\n        }\n    } catch (error) {\n        return [{\n            json: {\n                error: \"Failed to parse HTML content\",\n                errorDetails: error.message\n            }\n        }];\n    }\n\n    // Validate HTML content\n    if (!html || typeof html !== 'string') {\n        return [{\n            json: {\n                error: \"Unable to extract HTML content\",\n                inputType: typeof $input,\n                inputDetails: JSON.stringify($input).substring(0, 500)\n            }\n        }];\n    }\n\n    // Parsing function for case studies\n    const caseStudies = [];\n    const caseStudyRegex = /<li[^>]*class=\"flex flex-col[^>]*>(.*?)<\\/li>/gs;\n    const matches = [...html.matchAll(caseStudyRegex)];\n\n    matches.forEach(match => {\n        const block = match[1];\n        \n        // Extraction helper function\n        const extractText = (regex) => {\n            const result = block.match(regex);\n            return result ? result[1].trim().replace(/<[^>]*>/g, '') : null;\n        };\n\n        const companyName = extractText(/<h3[^>]*>(.*?)<\\/h3>/);\n        const description = extractText(/<p[^>]+text-base[^>]*>(.*?)<\\/p>/);\n        const logoUrl = block.match(/src=\"([^\"]+)\"/)?.[1];\n        const testimonial = extractText(/<p[^>]+mb-11[^>]*>(.*?)<\\/p>/);\n        const caseStudyUrl = block.match(/<a[^>]+href=\"([^\"]+)\">Read the case/)?.[1];\n\n        if (companyName && caseStudyUrl) {\n            caseStudies.push({\n                company: companyName,\n                description: description,\n                logo: logoUrl,\n                testimonial: testimonial,\n                caseStudyUrl: `https://revenuecat.com${caseStudyUrl}`\n            });\n        }\n    });\n\n    // Return results or error if no case studies found\n    if (caseStudies.length === 0) {\n        return [{\n            json: {\n                error: \"No case studies found\",\n                inputPreview: html.substring(0, 500)\n            }\n        }];\n    }\n\n    // Return results directly as an array of items\n    return caseStudies.map(study => ({\n        json: study\n    }));\n}\n\n// Execute the parse function\nreturn parse($input);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1380,
+        0
+      ],
+      "id": "01da2dad-76b2-4024-8fbd-da7087c5ad8e",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1G0YK_KBy0e1D3Rx5ZQvolws_Qy-7RM8DW3MpsaENPWI",
+          "mode": "list",
+          "cachedResultName": "1-RevenueCat client list",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1G0YK_KBy0e1D3Rx5ZQvolws_Qy-7RM8DW3MpsaENPWI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1G0YK_KBy0e1D3Rx5ZQvolws_Qy-7RM8DW3MpsaENPWI/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "company": "={{ $json.company }}",
+            "logo": "={{ $json.logo }}",
+            "description": "={{ $json.description }}",
+            "testimonial": "={{ $json.testimonial }}",
+            "caseStudyUrl": "={{ $json.caseStudyUrl }}",
+            "row_number": "1-100"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "company",
+              "displayName": "company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "logo",
+              "displayName": "logo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "testimonial",
+              "displayName": "testimonial",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "caseStudyUrl",
+              "displayName": "caseStudyUrl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1720,
+        0
+      ],
+      "id": "0723a8f0-712d-4198-b8fa-0d627df92301",
+      "name": "Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "BBm0mOG7ntj1CRHP",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "52e1a11d-7a8d-4d7f-b331-6f755d6f0913",
+              "name": "response",
+              "value": "Done",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1960,
+        0
+      ],
+      "id": "e332b1f1-c05a-40ce-8ee9-a501ba3c5358",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "url": "https://www.revenuecat.com/testimonials/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "jsonparse",
+              "value": "={{ JSON.stringify($json.message.content) }} "
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "UserAgent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,/;q=0.8"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        580,
+        0
+      ],
+      "id": "b7da2ff3-5a1d-49f2-a3af-4e69838b6f51",
+      "name": "HTTP-int"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d3f785ab-999c-4177-9103-d91344b26bfe",
+              "name": "body",
+              "value": "={{$json}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        800,
+        0
+      ],
+      "id": "87e42b58-bef1-4cd2-bcb8-461272301a54",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "30d733a1-0361-421e-b82a-c3f090f85f19",
+              "name": "html_debug",
+              "value": "={{$json[\"body\"]}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1020,
+        0
+      ],
+      "id": "b0d6886c-46d0-4964-aeef-8bc70063503f",
+      "name": "Edit Fields2"
+    }
+  ],
+  "pinData": {
+    "When Executed by Another Workflow": [
+      {
+        "json": {
+          "name": "Website Client List Scraper with Representatives",
+          "nodes": [
+            {
+              "parameters": {
+                "url": "https://www.example.com/customers",
+                "method": "GET",
+                "headerParameters": {
+                  "parameters": [
+                    {
+                      "name": "User-Agent",
+                      "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                    }
+                  ]
+                }
+              },
+              "name": "HTTP Request",
+              "type": "n8n-nodes-base.httpRequest",
+              "typeVersion": 4.1,
+              "position": [
+                100,
+                300
+              ]
+            },
+            {
+              "parameters": {
+                "dataType": "html",
+                "extractSelector": [
+                  ".customer-logo",
+                  ".client-logo",
+                  ".testimonial-company",
+                  "img[alt*='client']",
+                  "div[class*='customer']"
+                ],
+                "options": {
+                  "extractAttribute": [
+                    "alt",
+                    "title",
+                    "src"
+                  ]
+                }
+              },
+              "name": "Extract Client Logos",
+              "type": "n8n-nodes-base.htmlExtract",
+              "typeVersion": 1,
+              "position": [
+                300,
+                300
+              ]
+            },
+            {
+              "parameters": {
+                "dataType": "html",
+                "extractSelector": [
+                  ".customer-representative",
+                  ".testimonial-name",
+                  ".client-contact",
+                  ".rep-name",
+                  "span[data-role='representative']"
+                ],
+                "options": {
+                  "extractAttribute": [
+                    "textContent"
+                  ]
+                }
+              },
+              "name": "Extract Representative Names",
+              "type": "n8n-nodes-base.htmlExtract",
+              "typeVersion": 1,
+              "position": [
+                300,
+                500
+              ]
+            },
+            {
+              "parameters": {
+                "mode": "aggregateExpression",
+                "expression": "=UNIQUE($('Extract Client Logos').all().map(item => item.data))",
+                "options": {}
+              },
+              "name": "Remove Duplicate Clients",
+              "type": "n8n-nodes-base.itemLists",
+              "typeVersion": 1.1,
+              "position": [
+                500,
+                300
+              ]
+            },
+            {
+              "parameters": {
+                "mode": "aggregateExpression",
+                "expression": "=UNIQUE($('Extract Representative Names').all().map(item => item.data))",
+                "options": {}
+              },
+              "name": "Remove Duplicate Representatives",
+              "type": "n8n-nodes-base.itemLists",
+              "typeVersion": 1.1,
+              "position": [
+                500,
+                500
+              ]
+            },
+            {
+              "parameters": {
+                "mode": "combine",
+                "combinationMode": "multipleItems",
+                "options": {}
+              },
+              "name": "Merge Client and Representative Data",
+              "type": "n8n-nodes-base.merge",
+              "typeVersion": 1,
+              "position": [
+                700,
+                400
+              ]
+            },
+            {
+              "parameters": {
+                "mode": "json",
+                "options": {}
+              },
+              "name": "Format as JSON",
+              "type": "n8n-nodes-base.JSON",
+              "typeVersion": 1,
+              "position": [
+                900,
+                400
+              ]
+            },
+            {
+              "parameters": {
+                "keepOnlySet": true,
+                "options": {}
+              },
+              "name": "Clean Empty Entries",
+              "type": "n8n-nodes-base.itemLists",
+              "typeVersion": 1.1,
+              "position": [
+                1100,
+                400
+              ]
+            }
+          ],
+          "connections": {
+            "HTTP Request": {
+              "main": [
+                [
+                  {
+                    "node": "Extract Client Logos",
+                    "type": "main",
+                    "index": 0
+                  },
+                  {
+                    "node": "Extract Representative Names",
+                    "type": "main",
+                    "index": 0
+                  }
+                ]
+              ]
+            },
+            "Extract Client Logos": {
+              "main": [
+                [
+                  {
+                    "node": "Remove Duplicate Clients",
+                    "type": "main",
+                    "index": 0
+                  }
+                ]
+              ]
+            },
+            "Extract Representative Names": {
+              "main": [
+                [
+                  {
+                    "node": "Remove Duplicate Representatives",
+                    "type": "main",
+                    "index": 0
+                  }
+                ]
+              ]
+            },
+            "Remove Duplicate Clients": {
+              "main": [
+                [
+                  {
+                    "node": "Merge Client and Representative Data",
+                    "type": "main",
+                    "index": 0
+                  }
+                ]
+              ]
+            },
+            "Remove Duplicate Representatives": {
+              "main": [
+                [
+                  {
+                    "node": "Merge Client and Representative Data",
+                    "type": "main",
+                    "index": 1
+                  }
+                ]
+              ]
+            },
+            "Merge Client and Representative Data": {
+              "main": [
+                [
+                  {
+                    "node": "Clean Empty Entries",
+                    "type": "main",
+                    "index": 0
+                  }
+                ]
+              ]
+            },
+            "Clean Empty Entries": {
+              "main": [
+                [
+                  {
+                    "node": "Format as JSON",
+                    "type": "main",
+                    "index": 0
+                  }
+                ]
+              ]
+            }
+          },
+          "settings": {
+            "saveManualExecutions": false,
+            "executionOrder": "v1"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI": {
+      "main": [
+        [
+          {
+            "node": "HTTP-int",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP-int": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a4c6abe8-c291-4c67-99e9-97adc8c74bc7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8091befa65d167b97efc56d4c04d7376222a36c4db35c5ec024d3da3dd9034cc"
+  },
+  "id": "MGWj29lHN603zQ54",
+  "tags": []
+}
